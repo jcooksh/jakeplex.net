@@ -71,6 +71,10 @@ export default function Navbar() {
 
     return (
         <nav className="navbar">
+            {/* Bottom gradient glow. Real element (not ::after) because its
+                sliding ::before needs an overflow:hidden clipper, and putting
+                overflow:hidden on .navbar would clip the .mobile-nav drawer. */}
+            <div className="navbar-glow" aria-hidden="true" />
             <Link to="/" className="navbar-brand">
                 <span className="navbar-brand-icon">🎬</span>
                 JakePlex
@@ -103,8 +107,13 @@ export default function Navbar() {
                 )}
             </div>
 
-            {/* Mobile overlay + drawer */}
-            {menuOpen && <div className="mobile-nav-overlay" onClick={() => setMenuOpen(false)} />}
+            {/* Mobile overlay (portaled: the navbar's backdrop-filter makes it
+                the containing block for fixed descendants, which would shrink
+                this full-screen overlay to the navbar strip) + drawer */}
+            {menuOpen && createPortal(
+                <div className="mobile-nav-overlay" onClick={() => setMenuOpen(false)} />,
+                document.body
+            )}
             <div className={`mobile-nav ${menuOpen ? 'open' : ''}`}>
                 <Link to="/" className={`mobile-nav-link ${location.pathname === '/' ? 'active' : ''}`}>Home</Link>
                 <Link to="/library" className={`mobile-nav-link ${location.pathname === '/library' ? 'active' : ''}`}>On Plex</Link>

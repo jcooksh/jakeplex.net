@@ -17,47 +17,7 @@
 
 <body>
   <div id="root"></div>
-  <canvas id="starfield"></canvas>
   <script type="module" src="/src/main.jsx"></script>
-  <script>
-    (function(){
-      const c=document.getElementById('starfield');
-      const ctx=c.getContext('2d');
-      let stars=[];
-      function resize(){c.width=window.innerWidth;c.height=window.innerHeight;}
-      resize();window.addEventListener('resize',resize);
-      const COUNT=window.innerWidth<768?110:220;
-      for(let i=0;i<COUNT;i++){
-        stars.push({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,r:Math.random()*1.4+0.15,base:Math.random()*0.7+0.1,speed:Math.random()*0.04+0.01,ts:Math.random()*Math.PI*2,tsp:Math.random()*0.015+0.003,hue:Math.random()<0.15?(Math.random()<0.5?260:185):0,col:Math.random()<0.15});
-      }
-      // Star motion is sub-pixel per frame, so 25fps is visually identical to 60fps
-      // but cuts the full-screen canvas raster + GPU upload cost by ~60%.
-      let t=0,last=0,rafId=null;
-      function render(k){
-        ctx.clearRect(0,0,c.width,c.height);t+=0.008*k;
-        stars.forEach(s=>{
-          const op=s.base*(0.5+0.5*Math.sin(t*s.tsp*60+s.ts));
-          ctx.fillStyle=s.col?`hsla(${s.hue},80%,80%,${op})`:`rgba(255,255,255,${op})`;
-          ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
-          s.y-=s.speed*k;if(s.y<-2){s.y=c.height+2;s.x=Math.random()*c.width;}
-        });
-      }
-      function draw(now){
-        rafId=requestAnimationFrame(draw);
-        if(now-last<40)return;
-        const k=last?Math.min((now-last)/16.7,4):1;
-        last=now;
-        render(k);
-      }
-      if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-        t=1;render(1);
-      }else{
-        rafId=requestAnimationFrame(draw);
-        window.addEventListener('blur',()=>{if(rafId){cancelAnimationFrame(rafId);rafId=null;}});
-        window.addEventListener('focus',()=>{if(!rafId){last=0;rafId=requestAnimationFrame(draw);}});
-      }
-    })();
-  </script>
 </body>
 
 </html>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 
@@ -757,8 +758,9 @@ export default function AdminDashboard() {
                 ) : null}
             </div>
 
-            {/* Analytics Modal */}
-            {selectedRequest && (
+            {/* Analytics Modal — portaled to body: .page creates a stacking
+                context, so an inline z-index would stay trapped below the navbar */}
+            {selectedRequest && createPortal(
                 <div className="modal-overlay" onClick={() => setSelectedRequest(null)} style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200}}>
                     <div className="modal-content" onClick={e => e.stopPropagation()} style={{backgroundColor: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto'}}>
                         <h2 style={{marginTop: 0, marginBottom: '16px', color: 'var(--text-primary)'}}>
@@ -814,7 +816,8 @@ export default function AdminDashboard() {
                             Close
                         </button>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

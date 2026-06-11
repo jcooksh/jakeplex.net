@@ -70,8 +70,10 @@ const CircularGallery = React.forwardRef(
                     animationFrameRef.current = null;
                 }
             };
+            // app-calm check: a bare focus event must not restart the loop while
+            // the page is idle-calm — CalmGovernor fires 'jp:active' on input.
             const resume = () => {
-                if (!animationFrameRef.current) {
+                if (!animationFrameRef.current && !document.body.classList.contains('app-calm')) {
                     last = 0;
                     animationFrameRef.current = requestAnimationFrame(autoRotate);
                 }
@@ -79,10 +81,14 @@ const CircularGallery = React.forwardRef(
             animationFrameRef.current = requestAnimationFrame(autoRotate);
             window.addEventListener('blur', pause);
             window.addEventListener('focus', resume);
+            window.addEventListener('jp:calm', pause);
+            window.addEventListener('jp:active', resume);
             return () => {
                 pause();
                 window.removeEventListener('blur', pause);
                 window.removeEventListener('focus', resume);
+                window.removeEventListener('jp:calm', pause);
+                window.removeEventListener('jp:active', resume);
             };
         }, [autoRotateSpeed, anglePerItem, items.length]);
 
