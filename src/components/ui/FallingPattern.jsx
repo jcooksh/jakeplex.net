@@ -1,108 +1,100 @@
-import { motion } from 'framer-motion';
+import { useEffect, useRef } from 'react';
 
-const generateBackgroundImage = (color) => {
-	const p = [
-		`radial-gradient(4px 100px at 0px 235px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 235px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 117.5px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 252px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 252px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 126px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 150px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 150px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 75px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 253px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 253px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 126.5px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 204px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 204px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 102px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 134px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 134px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 67px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 179px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 179px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 89.5px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 299px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 299px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 149.5px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 215px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 215px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 107.5px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 281px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 281px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 140.5px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 158px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 158px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 79px, ${color} 100%, transparent 150%)`,
-		`radial-gradient(4px 100px at 0px 210px, ${color}, transparent)`,
-		`radial-gradient(4px 100px at 300px 210px, ${color}, transparent)`,
-		`radial-gradient(1.5px 1.5px at 150px 105px, ${color} 100%, transparent 150%)`,
-	];
-	return p.join(', ');
-};
-
-const backgroundSizes = [
-	'300px 235px','300px 235px','300px 235px',
-	'300px 252px','300px 252px','300px 252px',
-	'300px 150px','300px 150px','300px 150px',
-	'300px 253px','300px 253px','300px 253px',
-	'300px 204px','300px 204px','300px 204px',
-	'300px 134px','300px 134px','300px 134px',
-	'300px 179px','300px 179px','300px 179px',
-	'300px 299px','300px 299px','300px 299px',
-	'300px 215px','300px 215px','300px 215px',
-	'300px 281px','300px 281px','300px 281px',
-	'300px 158px','300px 158px','300px 158px',
-	'300px 210px','300px 210px','300px 210px',
-].join(', ');
-
-const startPositions = '0px 220px, 3px 220px, 151.5px 337.5px, 25px 24px, 28px 24px, 176.5px 150px, 50px 16px, 53px 16px, 201.5px 91px, 75px 224px, 78px 224px, 226.5px 230.5px, 100px 19px, 103px 19px, 251.5px 121px, 125px 120px, 128px 120px, 276.5px 187px, 150px 31px, 153px 31px, 301.5px 120.5px, 175px 235px, 178px 235px, 326.5px 384.5px, 200px 121px, 203px 121px, 351.5px 228.5px, 225px 224px, 228px 224px, 376.5px 364.5px, 250px 26px, 253px 26px, 401.5px 105px, 275px 75px, 278px 75px, 426.5px 180px';
-const endPositions = '0px 6800px, 3px 6800px, 151.5px 6917.5px, 25px 13632px, 28px 13632px, 176.5px 13758px, 50px 5416px, 53px 5416px, 201.5px 5491px, 75px 17175px, 78px 17175px, 226.5px 17301.5px, 100px 5119px, 103px 5119px, 251.5px 5221px, 125px 8428px, 128px 8428px, 276.5px 8495px, 150px 9876px, 153px 9876px, 301.5px 9965.5px, 175px 13391px, 178px 13391px, 326.5px 13540.5px, 200px 14741px, 203px 14741px, 351.5px 14848.5px, 225px 18770px, 228px 18770px, 376.5px 18910.5px, 250px 5082px, 253px 5082px, 401.5px 5161px, 275px 6375px, 278px 6375px, 426.5px 6480px';
+// Geometry lifted from the original 36-gradient framer-motion version: one
+// stream per 25px column — [tileHeight, startOffset, pxTravelledPer150s]
+const STREAMS = [
+	[235, 220, 6580], [252, 24, 13608], [150, 16, 5400], [253, 224, 16951],
+	[204, 19, 5100], [134, 120, 8308], [179, 31, 9845], [299, 235, 13156],
+	[215, 121, 14620], [281, 224, 18546], [158, 26, 5056], [210, 75, 6300],
+];
+const COLUMN_GAP = 25;
+// The canvas renders at 1/8 resolution and is upscaled by the browser — the
+// smoothing stands in for the old full-screen backdrop-filter blur, which
+// re-blurred the entire viewport every animation frame.
+const SCALE = 8;
 
 export function FallingPattern({
 	color = '#8b5cf6',
 	backgroundColor = '#04060f',
 	duration = 150,
-	blurIntensity = '1em',
 	density = 1,
 	style,
 }) {
+	const canvasRef = useRef(null);
+
+	useEffect(() => {
+		const canvas = canvasRef.current;
+		if (!canvas) return;
+		const ctx = canvas.getContext('2d');
+		const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		let rafId = null;
+		let w = 0, h = 0;
+
+		// Pre-render one soft streak sprite; per-frame work is just drawImage calls
+		const streakH = Math.ceil(200 / SCALE);
+		const fade = color.length === 7 ? `${color}00` : 'rgba(0,0,0,0)';
+		const sprite = document.createElement('canvas');
+		sprite.width = 2;
+		sprite.height = streakH;
+		const sctx = sprite.getContext('2d');
+		const grad = sctx.createLinearGradient(0, 0, 0, streakH);
+		grad.addColorStop(0, fade);
+		grad.addColorStop(0.5, color);
+		grad.addColorStop(1, fade);
+		sctx.fillStyle = grad;
+		sctx.fillRect(0, 0, 2, streakH);
+
+		const resize = () => {
+			const rect = canvas.getBoundingClientRect();
+			w = Math.max(1, Math.round(rect.width / SCALE));
+			h = Math.max(1, Math.round(rect.height / SCALE));
+			canvas.width = w;
+			canvas.height = h;
+		};
+
+		const draw = (now) => {
+			const t = now / 1000;
+			ctx.fillStyle = backgroundColor;
+			ctx.fillRect(0, 0, w, h);
+			const cols = Math.ceil((w * SCALE) / COLUMN_GAP);
+			for (let c = 0; c <= cols; c++) {
+				const [tileH, startY, travel] = STREAMS[c % STREAMS.length];
+				const speed = travel / duration;
+				const x = (c * COLUMN_GAP + 1.5) / SCALE - 1;
+				const tile = tileH / SCALE;
+				const offset = ((((startY + t * speed) / SCALE) % tile) + tile) % tile;
+				for (let y = offset - tile - streakH; y < h; y += tile) {
+					ctx.drawImage(sprite, x, y);
+				}
+			}
+		};
+
+		const tick = (now) => {
+			draw(now);
+			rafId = requestAnimationFrame(tick);
+		};
+
+		resize();
+		window.addEventListener('resize', resize);
+		if (reducedMotion) {
+			draw(0);
+		} else {
+			rafId = requestAnimationFrame(tick);
+		}
+
+		return () => {
+			if (rafId) cancelAnimationFrame(rafId);
+			window.removeEventListener('resize', resize);
+		};
+	}, [color, backgroundColor, duration]);
+
 	return (
-		<div style={{ position: 'relative', height: '100%', width: '100%', ...style }}>
-			<motion.div
-				initial={{ opacity: 0 }}
-				animate={{ opacity: 1 }}
-				transition={{ duration: 0.2 }}
-				style={{ width: '100%', height: '100%' }}
-			>
-				<motion.div
-					style={{
-						position: 'relative',
-						width: '100%',
-						height: '100%',
-						zIndex: 0,
-						backgroundColor,
-						backgroundImage: generateBackgroundImage(color),
-						backgroundSize: backgroundSizes,
-					}}
-					variants={{
-						initial: { backgroundPosition: startPositions },
-						animate: {
-							backgroundPosition: [startPositions, endPositions],
-							transition: { duration, ease: 'linear', repeat: Infinity },
-						},
-					}}
-					initial="initial"
-					animate="animate"
-				/>
-			</motion.div>
+		<div style={{ position: 'relative', height: '100%', width: '100%', backgroundColor, animation: 'fadeIn 0.2s ease', ...style }}>
+			<canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
 			<div
 				style={{
 					position: 'absolute',
 					inset: 0,
-					zIndex: 1,
-					backdropFilter: `blur(${blurIntensity})`,
 					backgroundImage: `radial-gradient(circle at 50% 50%, transparent 0, transparent 2px, ${backgroundColor} 2px)`,
 					backgroundSize: `${8 * density}px ${8 * density}px`,
 				}}
