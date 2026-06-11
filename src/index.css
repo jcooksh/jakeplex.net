@@ -114,6 +114,7 @@ body.no-scroll, html.no-scroll { overflow:hidden !important; }
 .hero-title-wrap .hero-title-glitch-h {
   position:absolute;inset:0;
   font-family:var(--font-heading);font-size:clamp(3.5rem,10vw,6.5rem);font-weight:900;
+  line-height:1.2;
   letter-spacing:-0.03em;
   background:var(--accent-gradient-3);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
@@ -325,6 +326,7 @@ body.no-scroll, html.no-scroll { overflow:hidden !important; }
   font-family:var(--font-heading);
   font-size:clamp(3.5rem,10vw,6.5rem);
   font-weight:900;
+  line-height:1.2; /* match the h1 — inherited 1.6 shifts the copy ~20px down, showing a "clone" */
   letter-spacing:-0.03em;
   background:var(--accent-gradient-3);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
@@ -340,6 +342,7 @@ body.no-scroll, html.no-scroll { overflow:hidden !important; }
   font-family:var(--font-heading);
   font-size:clamp(3.5rem,10vw,6.5rem);
   font-weight:900;
+  line-height:1.2;
   letter-spacing:-0.03em;
   background:var(--accent-gradient-3);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;

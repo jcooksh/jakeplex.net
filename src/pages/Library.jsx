@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Library() {
     const [items, setItems] = useState([]);
@@ -6,6 +7,42 @@ export default function Library() {
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
+    const navigate = useNavigate();
+
+    // Plex items carry no TMDB id — resolve via TMDB search (title + type + year)
+    // so the card opens the same detail page as a search result.
+    const handleItemClick = async (item) => {
+        const tmdbType = item.type === 'show' ? 'tv' : 'movie';
+        const fallback = () => navigate(`/search?q=${encodeURIComponent(item.title)}`);
+        try {
+            const res = await fetch(`/api/tmdb/search?q=${encodeURIComponent(item.title)}`);
+            const data = await res.json();
+            const results = (data.results || []).filter(r => r.media_type === tmdbType);
+
+            const titleMatches = (r) => {
+                const rTitle = (r.title || r.name || '').toLowerCase();
+                const iTitle = (item.title || '').toLowerCase();
+                return rTitle.includes(iTitle) || iTitle.includes(rTitle);
+            };
+            const yearMatches = (r) => {
+                const rYear = parseInt((r.release_date || r.first_air_date || '').slice(0, 4));
+                return item.year && rYear ? Math.abs(rYear - parseInt(item.year)) <= 1 : false;
+            };
+
+            const bestMatch =
+                results.find(r => titleMatches(r) && yearMatches(r)) ||
+                results.find(titleMatches) ||
+                results[0];
+
+            if (bestMatch) {
+                navigate(`/${bestMatch.media_type}/${bestMatch.id}`);
+            } else {
+                fallback();
+            }
+        } catch {
+            fallback();
+        }
+    };
 
     useEffect(() => {
         const fetchLibrary = async () => {
@@ -111,7 +148,12 @@ export default function Library() {
                             <div
                                 key={item.id}
                                 className="media-card"
-                                style={{ animationDelay: `${i * 30}ms`, cursor: 'default' }}
+                                style={{ animationDelay: `${i * 30}ms` }}
+                                role="button"
+                                tabIndex={0}
+                                title="View details"
+                                onClick={() => handleItemClick(item)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleItemClick(item)}
                             >
                                 {item.poster_path ? (
                                     <img
