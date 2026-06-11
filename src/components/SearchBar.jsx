@@ -39,6 +39,7 @@ export default function SearchBar({ initialQuery = '', autoFocus = false }) {
 
     return (
         <form onSubmit={handleSubmit} className="search-bar-wrapper">
+            <div className="search-halo" aria-hidden="true" />
             <div className="search-bar">
                 <span className="search-bar-icon">🔍</span>
                 <input

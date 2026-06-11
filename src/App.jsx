@@ -16,6 +16,23 @@ import { AuthProvider } from './context/AuthContext'
 
 const NO_SCROLL_ROUTES = ['/', '/admin', '/instructions'];
 
+// Freeze all decorative CSS animations while the window is unfocused —
+// invisible to the user, but drops idle GPU/CPU draw to near zero.
+function FocusPause() {
+  useEffect(() => {
+    const onBlur = () => document.body.classList.add('app-paused');
+    const onFocus = () => document.body.classList.remove('app-paused');
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('focus', onFocus);
+      document.body.classList.remove('app-paused');
+    };
+  }, []);
+  return null;
+}
+
 function NoScrollManager() {
   const location = useLocation();
   useEffect(() => {
@@ -36,7 +53,8 @@ function App() {
     <ToastProvider>
       <AuthProvider>
         <NoScrollManager />
-        <div style={{ position: 'fixed', inset: 0, zIndex: 0, maskImage: 'radial-gradient(ellipse at center, transparent 0%, #04060f 80%)', WebkitMaskImage: 'radial-gradient(ellipse at center, transparent 0%, #04060f 80%)' }}>
+        <FocusPause />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
           <FallingPattern style={{ height: '100vh' }} />
         </div>
         <div style={{ position: 'relative', zIndex: 1 }}>

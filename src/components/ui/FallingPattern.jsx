@@ -44,12 +44,33 @@ export function FallingPattern({
 		sctx.fillStyle = grad;
 		sctx.fillRect(0, 0, 2, streakH);
 
+		// Vignette baked into the canvas (alpha 1 centre → 0 at 80%, matching the old
+		// CSS mask-image ellipse). Erasing in-canvas is ~free; the CSS mask forced the
+		// compositor to re-render a full-screen offscreen surface every frame.
+		let vignette = null;
+		const buildVignette = () => {
+			vignette = document.createElement('canvas');
+			vignette.width = w;
+			vignette.height = h;
+			const vctx = vignette.getContext('2d');
+			const cx = w / 2, cy = h / 2;
+			const rx = cx * Math.SQRT2;
+			vctx.translate(cx, cy);
+			vctx.scale(1, h / w);
+			const grad = vctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+			grad.addColorStop(0, 'rgba(0,0,0,1)');
+			grad.addColorStop(0.8, 'rgba(0,0,0,0)');
+			vctx.fillStyle = grad;
+			vctx.fillRect(-cx, (-cy * w) / h, w, (h * w) / h);
+		};
+
 		const resize = () => {
 			const rect = canvas.getBoundingClientRect();
 			w = Math.max(1, Math.round(rect.width / SCALE));
 			h = Math.max(1, Math.round(rect.height / SCALE));
 			canvas.width = w;
 			canvas.height = h;
+			buildVignette();
 		};
 
 		const draw = (now) => {
@@ -67,12 +88,23 @@ export function FallingPattern({
 					ctx.drawImage(sprite, x, y);
 				}
 			}
+			ctx.globalCompositeOperation = 'destination-out';
+			ctx.drawImage(vignette, 0, 0);
+			ctx.globalCompositeOperation = 'source-over';
 		};
 
+		// 20fps: fastest stream moves <1 canvas px per frame; the 8x upscale
+		// smoothing hides the steps entirely while compositing cost drops to 1/3.
+		let lastDraw = 0;
 		const tick = (now) => {
-			draw(now);
 			rafId = requestAnimationFrame(tick);
+			if (now - lastDraw < 50) return;
+			lastDraw = now;
+			draw(now);
 		};
+
+		const pause = () => { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } };
+		const resume = () => { if (!rafId && !reducedMotion) rafId = requestAnimationFrame(tick); };
 
 		resize();
 		window.addEventListener('resize', resize);
@@ -80,11 +112,15 @@ export function FallingPattern({
 			draw(0);
 		} else {
 			rafId = requestAnimationFrame(tick);
+			window.addEventListener('blur', pause);
+			window.addEventListener('focus', resume);
 		}
 
 		return () => {
 			if (rafId) cancelAnimationFrame(rafId);
 			window.removeEventListener('resize', resize);
+			window.removeEventListener('blur', pause);
+			window.removeEventListener('focus', resume);
 		};
 	}, [color, backgroundColor, duration]);
 

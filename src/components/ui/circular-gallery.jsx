@@ -54,13 +54,36 @@ const CircularGallery = React.forwardRef(
             apply();
             if (reducedMotion) return;
 
-            const autoRotate = () => {
-                if (!isScrollingRef.current) rotationRef.current += autoRotateSpeed;
-                apply();
+            // 30fps, time-based: rotation is ~2deg/s, so half-rate steps are invisible
+            let last = 0;
+            const autoRotate = (now) => {
                 animationFrameRef.current = requestAnimationFrame(autoRotate);
+                if (now - last < 33) return;
+                const k = last ? Math.min((now - last) / 16.7, 4) : 1;
+                last = now;
+                if (!isScrollingRef.current) rotationRef.current += autoRotateSpeed * k;
+                apply();
+            };
+            const pause = () => {
+                if (animationFrameRef.current) {
+                    cancelAnimationFrame(animationFrameRef.current);
+                    animationFrameRef.current = null;
+                }
+            };
+            const resume = () => {
+                if (!animationFrameRef.current) {
+                    last = 0;
+                    animationFrameRef.current = requestAnimationFrame(autoRotate);
+                }
             };
             animationFrameRef.current = requestAnimationFrame(autoRotate);
-            return () => { if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current); };
+            window.addEventListener('blur', pause);
+            window.addEventListener('focus', resume);
+            return () => {
+                pause();
+                window.removeEventListener('blur', pause);
+                window.removeEventListener('focus', resume);
+            };
         }, [autoRotateSpeed, anglePerItem, items.length]);
 
         return (
