@@ -49,6 +49,11 @@ export default function MyRequests() {
         navigate('/');
     };
 
+    const openDetail = (req) => {
+        if (!req.tmdb_id || !req.media_type) return;
+        navigate(`/${req.media_type}/${req.tmdb_id}`);
+    };
+
     const confirmAndCancel = async (id) => {
         setCancellingId(id);
         setConfirmCancelId(null);
@@ -105,49 +110,54 @@ export default function MyRequests() {
                             <thead>
                                 <tr>
                                     <th>Media</th>
+                                    <th>Type</th>
                                     <th>Status</th>
-                                    <th>Date</th>
+                                    <th>Requested</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {requests.map(req => (
-                                    <tr key={req.id}>
-                                        <td className="request-row-media">
-                                            {req.poster_path ? (
-                                                <img
-                                                    src={`${IMG_BASE}/w92${req.poster_path}`}
-                                                    alt={req.title}
-                                                    className="request-row-poster"
-                                                />
-                                            ) : (
-                                                <div className="request-row-poster" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>🎬</div>
-                                            )}
-                                            <div>
-                                                <div className="request-row-title">{req.title}</div>
-                                                <div className="request-row-year">
-                                                    {req.year} • {req.media_type === 'movie' ? 'Movie' : 'TV Show'}
+                                    <tr
+                                        key={req.id}
+                                        className={req.tmdb_id ? 'row-clickable' : ''}
+                                        onClick={() => openDetail(req)}
+                                        onKeyDown={(e) => e.key === 'Enter' && openDetail(req)}
+                                        tabIndex={req.tmdb_id ? 0 : undefined}
+                                        title={req.tmdb_id ? 'View details' : undefined}
+                                    >
+                                        <td data-label="Media">
+                                            <div className="request-row-media">
+                                                {req.poster_path ? (
+                                                    <img
+                                                        src={`${IMG_BASE}/w92${req.poster_path}`}
+                                                        alt={req.title}
+                                                        className="request-row-poster"
+                                                    />
+                                                ) : (
+                                                    <div className="request-row-poster" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>🎬</div>
+                                                )}
+                                                <div>
+                                                    <div className="request-row-title">{req.title}</div>
+                                                    <div className="request-row-year">{req.year}</div>
+                                                    {req.overview && (
+                                                        <div className="request-row-overview">{req.overview}</div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                                                <span style={{ 
-                                                    padding: '4px 10px', 
-                                                    borderRadius: '20px', 
-                                                    fontSize: '0.75rem', 
-                                                    fontWeight: 'bold',
-                                                    textTransform: 'uppercase',
-                                                    background: req.status === 'approved' ? 'rgba(34, 197, 94, 0.2)' : 
-                                                            req.status === 'declined' ? 'rgba(239, 68, 68, 0.2)' : 
-                                                            'rgba(234, 179, 8, 0.2)',
-                                                    color: req.status === 'approved' ? '#4ade80' : 
-                                                        req.status === 'declined' ? '#f87171' : 
-                                                        '#facc15'
-                                                }}>
+                                        <td data-label="Type">
+                                            <span className={`badge badge-${req.media_type}`}>
+                                                {req.media_type === 'movie' ? 'Movie' : 'TV'}
+                                            </span>
+                                        </td>
+                                        <td data-label="Status">
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+                                                <span className={`badge badge-${req.status}`}>
                                                     {req.status}
                                                 </span>
                                                 {req.status === 'pending' && (
-                                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                                                         {confirmCancelId === req.id ? (
                                                             <>
                                                                 <span style={{ fontSize: '0.7rem', color: 'var(--danger)' }}>Sure?</span>
@@ -155,7 +165,7 @@ export default function MyRequests() {
                                                                 <button className="btn btn-secondary btn-sm" style={{ padding: '2px 6px', fontSize: '0.7rem' }} onClick={() => setConfirmCancelId(null)}>No</button>
                                                             </>
                                                         ) : (
-                                                            <button 
+                                                            <button
                                                                 className="btn btn-danger btn-sm"
                                                                 style={{ fontSize: '0.7rem', padding: '2px 8px' }}
                                                                 onClick={() => setConfirmCancelId(req.id)}
@@ -168,8 +178,15 @@ export default function MyRequests() {
                                                 )}
                                             </div>
                                         </td>
-                                        <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                            {new Date(req.requested_at).toLocaleDateString()}
+                                        <td data-label="Requested" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                            {new Date(req.requested_at).toLocaleDateString('en-GB', {
+                                                day: 'numeric',
+                                                month: 'short',
+                                                year: 'numeric',
+                                            })}
+                                        </td>
+                                        <td data-label="Details">
+                                            {req.tmdb_id && <span className="request-row-hint">View details ›</span>}
                                         </td>
                                     </tr>
                                 ))}

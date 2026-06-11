@@ -142,7 +142,7 @@ export default function MediaDetail({ type }) {
             {detail.backdrop_path && (
                 <div className="detail-backdrop">
                     <img
-                        src={`${IMG_BASE}/original${detail.backdrop_path}`}
+                        src={`${IMG_BASE}/w1280${detail.backdrop_path}`}
                         alt=""
                         aria-hidden="true"
                     />

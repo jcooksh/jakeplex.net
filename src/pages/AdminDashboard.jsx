@@ -449,7 +449,17 @@ export default function AdminDashboard() {
                                 {filteredRequests.map((req) => (
                                     <tr key={req.id}>
                                         <td data-label="Title">
-                                            <div className="request-row-media">
+                                            <div
+                                                className="request-row-media"
+                                                style={{ cursor: req.tmdb_id ? 'pointer' : 'default' }}
+                                                title={req.tmdb_id ? 'View details' : undefined}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (req.tmdb_id && req.media_type) {
+                                                        navigate(`/${req.media_type}/${req.tmdb_id}`);
+                                                    }
+                                                }}
+                                            >
                                                 {req.poster_path ? (
                                                     <img
                                                         className="request-row-poster"
@@ -472,16 +482,7 @@ export default function AdminDashboard() {
                                                 <div>
                                                     <div
                                                         className="request-row-title"
-                                                        style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'var(--accent-primary)', textUnderlineOffset: '3px' }}
-                                                        title={req.media_type === 'tv' ? `Open in Sonarr` : `Open in Radarr`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (req.media_type === 'tv') {
-                                                                openInSonarr(req.title);
-                                                            } else {
-                                                                openInRadarr(req.tmdb_id);
-                                                            }
-                                                        }}
+                                                        style={{ textDecoration: 'underline', textDecorationColor: 'var(--accent-primary)', textUnderlineOffset: '3px' }}
                                                     >
                                                         {req.title}
                                                     </div>
@@ -539,6 +540,19 @@ export default function AdminDashboard() {
                                         </td>
                                         <td data-label="Actions">
                                             <div className="request-row-actions">
+                                                <button
+                                                    className="btn btn-secondary btn-sm"
+                                                    title={req.media_type === 'tv' ? 'Open in Sonarr' : 'Open in Radarr'}
+                                                    onClick={() => {
+                                                        if (req.media_type === 'tv') {
+                                                            openInSonarr(req.title);
+                                                        } else {
+                                                            openInRadarr(req.tmdb_id);
+                                                        }
+                                                    }}
+                                                >
+                                                    {req.media_type === 'tv' ? 'Sonarr ↗' : 'Radarr ↗'}
+                                                </button>
                                                 {req.status !== 'approved' && (
                                                     <button
                                                         className="btn btn-success btn-sm"
@@ -745,7 +759,7 @@ export default function AdminDashboard() {
 
             {/* Analytics Modal */}
             {selectedRequest && (
-                <div className="modal-overlay" onClick={() => setSelectedRequest(null)} style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+                <div className="modal-overlay" onClick={() => setSelectedRequest(null)} style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1200}}>
                     <div className="modal-content" onClick={e => e.stopPropagation()} style={{backgroundColor: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto'}}>
                         <h2 style={{marginTop: 0, marginBottom: '16px', color: 'var(--text-primary)'}}>
                             Analytics for {selectedRequest.requested_by || 'Anonymous'}

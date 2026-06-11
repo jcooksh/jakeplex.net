@@ -102,6 +102,7 @@ export default function Home() {
 
                     <div className="hero-title-wrap">
                         <h1 className="hero-title">JakePlex</h1>
+                        <div className="hero-title-glow" aria-hidden="true">JakePlex</div>
                         <div className="hero-title-glitch g1" aria-hidden="true">JakePlex</div>
                         <div className="hero-title-glitch g2" aria-hidden="true">JakePlex</div>
                         <div className="hero-title-glitch-h hg1" aria-hidden="true">JakePlex</div>
