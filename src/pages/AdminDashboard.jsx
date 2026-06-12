@@ -8,7 +8,6 @@ const IMG_BASE = 'https://image.tmdb.org/t/p/w92';
 // Internal media server links (local network only)
 const SONARR_URL = 'http://100.95.16.108:30113';
 const RADARR_URL = 'http://100.95.16.108:30025';
-const RADARR_API_KEY = 'cbc86ec4110741028822e35e6702c6cc';
 
 const toSonarrSlug = (title) =>
     title.toLowerCase()

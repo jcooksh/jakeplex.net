@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { cachedJson } from '../lib/apiCache';
+
+// Seed for instant render on revisits — the cache still revalidates via TTL
+let lastItems = null;
 
 export default function Library() {
-    const [items, setItems] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [items, setItems] = useState(() => lastItems ?? []);
+    const [loading, setLoading] = useState(() => lastItems === null);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -15,8 +19,7 @@ export default function Library() {
         const tmdbType = item.type === 'show' ? 'tv' : 'movie';
         const fallback = () => navigate(`/search?q=${encodeURIComponent(item.title)}`);
         try {
-            const res = await fetch(`/api/tmdb/search?q=${encodeURIComponent(item.title)}`);
-            const data = await res.json();
+            const data = await cachedJson(`/api/tmdb/search?q=${encodeURIComponent(item.title)}`);
             const results = (data.results || []).filter(r => r.media_type === tmdbType);
 
             const titleMatches = (r) => {
@@ -47,13 +50,13 @@ export default function Library() {
     useEffect(() => {
         const fetchLibrary = async () => {
             try {
-                const res = await fetch('/api/plex/library');
-                const data = await res.json();
+                const data = await cachedJson('/api/plex/library');
 
                 if (data.error) {
                     setError(data.error);
                 } else {
-                    setItems(data.items || []);
+                    lastItems = data.items || [];
+                    setItems(lastItems);
                 }
             } catch (err) {
                 console.error('Failed to fetch library:', err);

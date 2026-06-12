@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import SearchBar from '../components/SearchBar';
 import { CircularGallery } from '../components/ui/circular-gallery';
+import { cachedJson } from '../lib/apiCache';
 
 const IMG_BASE = 'https://image.tmdb.org/t/p';
+
+// Seed for instant gallery render when navigating back home
+let lastGalleryItems = null;
 
 const ALL_POSTER_PATHS = [
     '/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', '/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg',
@@ -39,11 +43,10 @@ const shuffled = shuffle(ALL_POSTER_PATHS);
 const HERO_POSTERS = POSTER_POSITIONS.map((pos, i) => ({ ...pos, p: shuffled[i] }));
 
 export default function Home() {
-    const [galleryItems, setGalleryItems] = useState([]);
+    const [galleryItems, setGalleryItems] = useState(() => lastGalleryItems ?? []);
 
     useEffect(() => {
-        fetch('/api/plex/recent-unrequested')
-            .then(r => r.json())
+        cachedJson('/api/plex/recent-unrequested')
             .then(data => {
                 const items = (data.items || [])
                     .filter(i => i.poster_path)
@@ -53,6 +56,7 @@ export default function Home() {
                         genre: i.type === 'show' ? 'TV Show' : 'Movie',
                         poster: `/api/plex/image?path=${encodeURIComponent(i.poster_path)}`,
                     }));
+                lastGalleryItems = items;
                 setGalleryItems(items);
             })
             .catch(() => {});

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import SearchBar from '../components/SearchBar';
 import MediaCard from '../components/MediaCard';
+import { cachedJson } from '../lib/apiCache';
 
 export default function SearchResults() {
     const [searchParams] = useSearchParams();
@@ -17,12 +18,10 @@ export default function SearchResults() {
             setLoading(true);
             setErrorMsg('');
             try {
-                const [tmdbRes, plexRes] = await Promise.all([
-                    fetch(`/api/tmdb/search?q=${encodeURIComponent(query)}`),
-                    fetch('/api/plex/library')
+                const [data, plexData] = await Promise.all([
+                    fetch(`/api/tmdb/search?q=${encodeURIComponent(query)}`).then(r => r.json()),
+                    cachedJson('/api/plex/library'),
                 ]);
-                const data = await tmdbRes.json();
-                const plexData = await plexRes.json();
 
                 if (data.error === 'TMDB_API_KEY_MISSING') {
                     setErrorMsg('TMDB_API_KEY_MISSING');

@@ -1,5 +1,5 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import Navbar from './components/Navbar'
 import Toast from './components/Toast'
 import { FallingPattern } from './components/ui/FallingPattern'
@@ -8,11 +8,13 @@ import SearchResults from './pages/SearchResults'
 import MediaDetail from './pages/MediaDetail'
 import Library from './pages/Library'
 import Instructions from './pages/Instructions'
-import AdminLogin from './pages/AdminLogin'
-import AdminDashboard from './pages/AdminDashboard'
 import MyRequests from './pages/MyRequests'
 import { ToastProvider } from './context/ToastContext'
 import { AuthProvider } from './context/AuthContext'
+
+// Admin pages are admin-only — keep them out of every visitor's bundle
+const AdminLogin = lazy(() => import('./pages/AdminLogin'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 
 const NO_SCROLL_ROUTES = ['/', '/admin', '/instructions'];
 
@@ -127,8 +129,8 @@ function App() {
           <Route path="/requests" element={<MyRequests />} />
           <Route path="/movie/:id" element={<MediaDetail type="movie" />} />
           <Route path="/tv/:id" element={<MediaDetail type="tv" />} />
-          <Route path="/admin" element={<AdminLogin />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin" element={<Suspense fallback={<div className="page"><div className="loading" style={{ minHeight: '60vh' }}><div className="spinner" /></div></div>}><AdminLogin /></Suspense>} />
+          <Route path="/admin/dashboard" element={<Suspense fallback={<div className="page"><div className="loading" style={{ minHeight: '60vh' }}><div className="spinner" /></div></div>}><AdminDashboard /></Suspense>} />
         </Routes>
         </div>
       </AuthProvider>

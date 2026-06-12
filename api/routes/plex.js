@@ -1,7 +1,79 @@
 import { Router } from 'express';
-import { getRequests } from '../db.js';
 
 const router = Router();
+
+const getPlexConfig = () => {
+    const plexUrl = process.env.PLEX_URL;
+    const plexToken = process.env.PLEX_TOKEN;
+    if (!plexUrl || !plexToken || plexUrl.includes('your-plex-ip') || plexToken.includes('YOUR_PLEX_TOKEN')) {
+        return null;
+    }
+    return {
+        url: plexUrl.endsWith('/') ? plexUrl.slice(0, -1) : plexUrl,
+        token: plexToken,
+    };
+};
+
+const sanitize = (metadata, type) =>
+    metadata.map(item => ({
+        id: item.ratingKey,
+        title: item.title,
+        year: item.year,
+        type, // 'movie' or 'show'
+        poster_path: item.thumb,
+        addedAt: item.addedAt,
+    }));
+
+const fetchSections = async ({ url, token }) => {
+    const res = await fetch(`${url}/library/sections?X-Plex-Token=${token}`, {
+        headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) throw new Error('Failed to fetch sections');
+    const data = await res.json();
+    return (data.MediaContainer?.Directory || []).filter(d => d.type === 'movie' || d.type === 'show');
+};
+
+const fetchSectionItems = ({ url, token }, dir, limit) => {
+    const paging = limit ? `&X-Plex-Container-Start=0&X-Plex-Container-Size=${limit}` : '';
+    return fetch(`${url}/library/sections/${dir.key}/all?sort=addedAt%3Adesc${paging}&X-Plex-Token=${token}`, {
+        headers: { Accept: 'application/json' },
+    }).then(async (libRes) => {
+        if (!libRes.ok) return [];
+        const libData = await libRes.json();
+        return sanitize(libData.MediaContainer?.Metadata || [], dir.type);
+    }).catch(e => {
+        console.error('Section fetch error:', e);
+        return [];
+    });
+};
+
+// Module-scope TTL cache: warm serverless invocations share module state, so
+// repeat hits within the TTL skip the (slow, multi-MB) Plex library walk.
+// The in-flight promise also dedupes concurrent callers — /library is hit by
+// every search, so bursts collapse into one upstream crawl.
+const TTL = 5 * 60_000;
+const cache = new Map(); // key -> { ts, promise }
+
+const cached = (key, fn) => {
+    const hit = cache.get(key);
+    if (hit && Date.now() - hit.ts < TTL) return hit.promise;
+    const promise = fn().catch(err => { cache.delete(key); throw err; });
+    cache.set(key, { ts: Date.now(), promise });
+    return promise;
+};
+
+// Full library walk — used by /library (and importable by other routes)
+export const fetchPlexLibrary = () => {
+    const config = getPlexConfig();
+    if (!config) return Promise.resolve(null);
+    return cached('library', async () => {
+        const sections = await fetchSections(config);
+        const resultsArrays = await Promise.all(sections.map(dir => fetchSectionItems(config, dir)));
+        const allItems = resultsArrays.flat();
+        allItems.sort((a, b) => b.addedAt - a.addedAt);
+        return allItems;
+    });
+};
 
 router.get('/check', async (req, res) => {
     try {
@@ -10,24 +82,17 @@ router.get('/check', async (req, res) => {
             return res.status(400).json({ error: 'Title required' });
         }
 
-        const plexUrl = process.env.PLEX_URL;
-        const plexToken = process.env.PLEX_TOKEN;
-
-        // If Plex isn't configured, just return false (not on Plex)
-        if (!plexUrl || !plexToken || plexUrl.includes('your-plex-ip') || plexToken.includes('YOUR_PLEX_TOKEN')) {
+        const config = getPlexConfig();
+        if (!config) {
             return res.json({ available: false, configured: false });
         }
 
-        // Clean up the URL format just in case
-        const cleanPlexUrl = plexUrl.endsWith('/') ? plexUrl.slice(0, -1) : plexUrl;
+        // Response is user-independent — let the edge serve repeat lookups
+        res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
 
-        // Call Plex Search API securely from the backend
-        const searchUrl = `${cleanPlexUrl}/search?query=${encodeURIComponent(title)}&X-Plex-Token=${plexToken}`;
-
+        const searchUrl = `${config.url}/search?query=${encodeURIComponent(title)}&X-Plex-Token=${config.token}`;
         const response = await fetch(searchUrl, {
-            headers: {
-                'Accept': 'application/json'
-            }
+            headers: { Accept: 'application/json' },
         });
 
         if (!response.ok) {
@@ -36,32 +101,21 @@ router.get('/check', async (req, res) => {
         }
 
         const data = await response.json();
-
-        // Plex returns results in MediaContainer.Metadata array
         const results = data.MediaContainer?.Metadata || [];
 
-        // Check if we have a match
-        // We'll do a simple match on title, and optionally year to be safe
+        // Simple match on title, and optionally year to be safe
         let isAvailable = false;
-
-        if (results.length > 0) {
-            for (const item of results) {
-                // Plex media types: 1=movie, 2=show
-                if (item.type === 'movie' || item.type === 'show') {
-                    // Check if title matches (case insensitive)
-                    const titleMatches = item.title.toLowerCase() === title.toLowerCase();
-
-                    // Check if year matches (if provided)
-                    let yearMatches = true;
-                    if (year && item.year) {
-                        // Allow 1 year difference due to release date variations
-                        yearMatches = Math.abs(parseInt(item.year) - parseInt(year)) <= 1;
-                    }
-
-                    if (titleMatches && yearMatches) {
-                        isAvailable = true;
-                        break;
-                    }
+        for (const item of results) {
+            if (item.type === 'movie' || item.type === 'show') {
+                const titleMatches = item.title.toLowerCase() === title.toLowerCase();
+                let yearMatches = true;
+                if (year && item.year) {
+                    // Allow 1 year difference due to release date variations
+                    yearMatches = Math.abs(parseInt(item.year) - parseInt(year)) <= 1;
+                }
+                if (titleMatches && yearMatches) {
+                    isAvailable = true;
+                    break;
                 }
             }
         }
@@ -78,128 +132,41 @@ router.get('/check', async (req, res) => {
 // Securely fetch all installed movies/shows
 router.get('/library', async (req, res) => {
     try {
-        const plexUrl = process.env.PLEX_URL;
-        const plexToken = process.env.PLEX_TOKEN;
-
-        if (!plexUrl || !plexToken || plexUrl.includes('your-plex-ip') || plexToken.includes('YOUR_PLEX_TOKEN')) {
+        const items = await fetchPlexLibrary();
+        if (items === null) {
             return res.json({ error: 'Plex not configured', items: [] });
         }
-
-        const cleanPlexUrl = plexUrl.endsWith('/') ? plexUrl.slice(0, -1) : plexUrl;
-
-        // 1. Get library sections
-        const sectionsRes = await fetch(`${cleanPlexUrl}/library/sections?X-Plex-Token=${plexToken}`, {
-            headers: { 'Accept': 'application/json' }
-        });
-
-        if (!sectionsRes.ok) throw new Error('Failed to fetch sections');
-        const sectionsData = await sectionsRes.json();
-        const directories = sectionsData.MediaContainer?.Directory || [];
-
-        // 2. Fetch contents for movie/show sections in parallel to avoid Vercel timeouts
-        const fetchPromises = [];
-
-        for (const dir of directories) {
-            if (dir.type === 'movie' || dir.type === 'show') {
-                const promise = fetch(`${cleanPlexUrl}/library/sections/${dir.key}/all?sort=addedAt%3Adesc&X-Plex-Token=${plexToken}`, {
-                    headers: { 'Accept': 'application/json' }
-                }).then(async (libRes) => {
-                    if (libRes.ok) {
-                        const libData = await libRes.json();
-                        const metadata = libData.MediaContainer?.Metadata || [];
-
-                        // Sanitize the metadata before sending to frontend
-                        return metadata.map(item => ({
-                            id: item.ratingKey,
-                            title: item.title,
-                            year: item.year,
-                            type: dir.type, // 'movie' or 'show'
-                            poster_path: item.thumb,
-                            addedAt: item.addedAt
-                        }));
-                    }
-                    return [];
-                }).catch(e => {
-                    console.error('Section fetch error:', e);
-                    return [];
-                });
-
-                fetchPromises.push(promise);
-            }
-        }
-
-        const resultsArrays = await Promise.all(fetchPromises);
-        let allItems = resultsArrays.flat();
-
-        // Sort by most recently added
-        allItems.sort((a, b) => b.addedAt - a.addedAt);
-
-        res.json({ items: allItems });
+        // Library contents change rarely; 5-min edge staleness is invisible and
+        // lets Vercel's CDN answer without invoking the function at all
+        res.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+        res.json({ items });
     } catch (err) {
         console.error('Plex Library Error:', err.message, err.cause);
         res.json({ items: [], error: `Fetch failed: ${err.message} | Cause: ${err.cause ? err.cause.message : 'unknown'}` });
     }
 });
 
-// Securely fetch recently added items that are not requested
+// Securely fetch recently added items
 router.get('/recent-unrequested', async (req, res) => {
     try {
-        const plexUrl = process.env.PLEX_URL;
-        const plexToken = process.env.PLEX_TOKEN;
-
-        if (!plexUrl || !plexToken || plexUrl.includes('your-plex-ip') || plexToken.includes('YOUR_PLEX_TOKEN')) {
+        const config = getPlexConfig();
+        if (!config) {
             return res.json({ error: 'Plex not configured', items: [] });
         }
 
-        const cleanPlexUrl = plexUrl.endsWith('/') ? plexUrl.slice(0, -1) : plexUrl;
-
-        // 1. Get library sections
-        const sectionsRes = await fetch(`${cleanPlexUrl}/library/sections?X-Plex-Token=${plexToken}`, {
-            headers: { 'Accept': 'application/json' }
+        // Only the 10 newest per section are requested from Plex (the sections
+        // are already sorted addedAt:desc) — the old version transferred the
+        // entire library to return 10 items.
+        const items = await cached('recent', async () => {
+            const sections = await fetchSections(config);
+            const resultsArrays = await Promise.all(sections.map(dir => fetchSectionItems(config, dir, 10)));
+            const allItems = resultsArrays.flat();
+            allItems.sort((a, b) => b.addedAt - a.addedAt);
+            return allItems.slice(0, 10);
         });
 
-        if (!sectionsRes.ok) throw new Error('Failed to fetch sections');
-        const sectionsData = await sectionsRes.json();
-        const directories = sectionsData.MediaContainer?.Directory || [];
-
-        // 2. Fetch contents for movie/show sections in parallel
-        const fetchPromises = [];
-
-        for (const dir of directories) {
-            if (dir.type === 'movie' || dir.type === 'show') {
-                const promise = fetch(`${cleanPlexUrl}/library/sections/${dir.key}/all?sort=addedAt%3Adesc&X-Plex-Token=${plexToken}`, {
-                    headers: { 'Accept': 'application/json' }
-                }).then(async (libRes) => {
-                    if (libRes.ok) {
-                        const libData = await libRes.json();
-                        const metadata = libData.MediaContainer?.Metadata || [];
-
-                        return metadata.map(item => ({
-                            id: item.ratingKey,
-                            title: item.title,
-                            year: item.year,
-                            type: dir.type,
-                            poster_path: item.thumb,
-                            addedAt: item.addedAt
-                        }));
-                    }
-                    return [];
-                }).catch(e => {
-                    console.error('Section fetch error:', e);
-                    return [];
-                });
-
-                fetchPromises.push(promise);
-            }
-        }
-
-        const resultsArrays = await Promise.all(fetchPromises);
-        let allItems = resultsArrays.flat();
-
-        // Sort by most recently added
-        allItems.sort((a, b) => b.addedAt - a.addedAt);
-
-        res.json({ items: allItems.slice(0, 10) });
+        res.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+        res.json({ items });
     } catch (err) {
         console.error('Plex Recent-Unrequested Error:', err.message, err.cause);
         res.json({ items: [], error: `Fetch failed: ${err.message}` });
@@ -212,11 +179,10 @@ router.get('/image', async (req, res) => {
         const { path } = req.query;
         if (!path) return res.status(400).send('Path required');
 
-        const plexUrl = process.env.PLEX_URL;
-        const plexToken = process.env.PLEX_TOKEN;
-        const cleanPlexUrl = plexUrl.endsWith('/') ? plexUrl.slice(0, -1) : plexUrl;
+        const config = getPlexConfig();
+        if (!config) return res.status(503).send('Plex not configured');
 
-        const imageUrl = `${cleanPlexUrl}${path}?X-Plex-Token=${plexToken}`;
+        const imageUrl = `${config.url}${path}?X-Plex-Token=${config.token}`;
         const response = await fetch(imageUrl);
 
         if (!response.ok) {
@@ -225,7 +191,8 @@ router.get('/image', async (req, res) => {
 
         const buffer = await response.arrayBuffer();
         res.setHeader('Content-Type', response.headers.get('content-type') || 'image/jpeg');
-        res.setHeader('Cache-Control', 'public, max-age=86400'); // cache for 1 day
+        // s-maxage lets Vercel's CDN serve every user from one origin fetch per day
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
         res.send(Buffer.from(buffer));
     } catch (err) {
         console.error('Image proxy error:', err);

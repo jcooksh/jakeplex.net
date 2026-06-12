@@ -2,6 +2,7 @@ import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { addRequest, getRequests, getRequestByTmdbId, getRequestsByUser, updateRequestStatus, deleteRequest, updateRequestEstimatedUser, assignKnownDevice, findKnownDevice } from '../db.js';
 import { verifyToken } from '../middleware/auth.js';
+import { fetchPlexLibrary } from './plex.js';
 
 // Resolves a Bearer token to { username, email, thumb } — supports both Plex tokens and custom user JWTs
 async function resolveRequester(authHeader) {
@@ -156,15 +157,6 @@ router.delete('/:id', verifyToken, async (req, res) => {
 // Admin: auto-detect installed items on Plex and mark as approved
 router.post('/auto-detect', verifyToken, async (req, res) => {
     try {
-        const plexUrl = process.env.PLEX_URL;
-        const plexToken = process.env.PLEX_TOKEN;
-
-        if (!plexUrl || !plexToken) {
-            return res.json({ updated: [], message: 'Plex not configured' });
-        }
-
-        const cleanPlexUrl = plexUrl.endsWith('/') ? plexUrl.slice(0, -1) : plexUrl;
-
         // 1. Get all requests
         const allRequests = await getRequests();
         const pendingRequests = allRequests.filter(r => r.status === 'pending');
@@ -173,31 +165,16 @@ router.post('/auto-detect', verifyToken, async (req, res) => {
             return res.json({ updated: [], message: 'No pending requests' });
         }
 
-        // 2. Get Plex library sections
-        const sectionsRes = await fetch(`${cleanPlexUrl}/library/sections?X-Plex-Token=${plexToken}`, {
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!sectionsRes.ok) throw new Error('Failed to fetch Plex sections');
-        const sectionsData = await sectionsRes.json();
-        const directories = sectionsData.MediaContainer?.Directory || [];
-
-        // 3. Fetch all items from movie/show sections in parallel
-        const fetchPromises = directories
-            .filter(dir => dir.type === 'movie' || dir.type === 'show')
-            .map(dir =>
-                fetch(`${cleanPlexUrl}/library/sections/${dir.key}/all?X-Plex-Token=${plexToken}`, {
-                    headers: { 'Accept': 'application/json' }
-                })
-                    .then(r => r.ok ? r.json() : { MediaContainer: {} })
-                    .then(data => (data.MediaContainer?.Metadata || []).map(item => ({
-                        title: item.title?.toLowerCase(),
-                        year: item.year
-                    })))
-                    .catch(() => [])
-            );
-
-        const plexArrays = await Promise.all(fetchPromises);
-        const plexItems = plexArrays.flat();
+        // 2. Reuse the shared (TTL-cached) library walk instead of a third
+        // copy of the full Plex crawl
+        const libraryItems = await fetchPlexLibrary();
+        if (libraryItems === null) {
+            return res.json({ updated: [], message: 'Plex not configured' });
+        }
+        const plexItems = libraryItems.map(item => ({
+            title: item.title?.toLowerCase(),
+            year: item.year
+        }));
 
         // 4. Cross-reference: check each pending request against Plex
         const updated = [];
