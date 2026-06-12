@@ -82,6 +82,44 @@
     <div class="stat"><div class="n">5.2 M</div><div class="l">screen pixels the background no longer fights over</div></div>
   </div>
 
+  <h2>Where the power goes</h2>
+  <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));">
+    <div class="stat">
+      <div style="font-weight:800;margin-bottom:4px;">BEFORE — the ~20&nbsp;W tab <span class="pill bad">all fixed now</span></div>
+      <div class="note" style="margin-bottom:14px;">What the old build spent its draw on, 24/7 while the tab was open.</div>
+      <div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap;">
+        <div style="width:200px;height:200px;border-radius:50%;flex-shrink:0;
+          background:conic-gradient(#8b5cf6 0% 35%, #06b6d4 35% 65%, #ec4899 65% 77%, #f59e0b 77% 89%, #10b981 89% 96%, #64748b 96% 100%);
+          border:1px solid var(--border);"></div>
+        <ul style="list-style:none;font-size:0.84rem;display:flex;flex-direction:column;gap:7px;">
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#8b5cf6;margin-right:8px;"></span><b>35%</b> blending 6 full-screen layers @60Hz</li>
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#06b6d4;margin-right:8px;"></span><b>30%</b> starfield canvas redraw @60fps</li>
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#ec4899;margin-right:8px;"></span><b>12%</b> search-bar conic repaint (always on)</li>
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#f59e0b;margin-right:8px;"></span><b>12%</b> 16 poster layers + gallery + navbar strip</li>
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#10b981;margin-right:8px;"></span><b>7%</b> navbar backdrop blur re-blurring</li>
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#64748b;margin-right:8px;"></span><b>4%</b> JS / React render loops</li>
+        </ul>
+      </div>
+    </div>
+    <div class="stat">
+      <div style="font-weight:800;margin-bottom:4px;">NOW — while you actively use it <span class="pill good">~0 W idle / unfocused</span></div>
+      <div class="note" style="margin-bottom:14px;">Total is a small fraction of the old 20&nbsp;W; whole pie → ~0 after 30&nbsp;s without input.</div>
+      <div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap;">
+        <div style="width:200px;height:200px;border-radius:50%;flex-shrink:0;
+          background:conic-gradient(#8b5cf6 0% 45%, #06b6d4 45% 65%, #ec4899 65% 80%, #f59e0b 80% 92%, #10b981 92% 100%);
+          border:1px solid var(--border);"></div>
+        <ul style="list-style:none;font-size:0.84rem;display:flex;flex-direction:column;gap:7px;">
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#8b5cf6;margin-right:8px;"></span><b>45%</b> blending 3 surfaces @20Hz</li>
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#06b6d4;margin-right:8px;"></span><b>20%</b> unified canvas draw + upload @20fps</li>
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#ec4899;margin-right:8px;"></span><b>15%</b> navbar backdrop blur (strip only)</li>
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#f59e0b;margin-right:8px;"></span><b>12%</b> scrolling / interaction rendering</li>
+          <li><span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#10b981;margin-right:8px;"></span><b>8%</b> JS (rAF logic, React)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <p class="note">Shares are engineering estimates from the audit's power model (pixels touched × frequency × surfaces), not meter readings. Left pie = where the old ~20&nbsp;W went (every slice has since been fixed or merged). Right pie = the remaining small active-use cost; it drops to ~0 after 30&nbsp;s without input or when the window loses focus.</p>
+
   <h2>What was burning the ~20 W (and what fixed it)</h2>
   <table>
     <tr><th>Cost</th><th>Before</th><th>After</th><th>Status</th></tr>
