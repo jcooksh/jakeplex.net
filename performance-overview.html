@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JakePlex — Performance Overview</title>
+<style>
+  :root {
+    --bg: #04060f; --bg2: #0a0e1f; --card: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.09); --text: #f0f4ff; --muted: #8899bb;
+    --purple: #8b5cf6; --cyan: #06b6d4; --pink: #ec4899;
+    --good: #10b981; --warn: #f59e0b; --bad: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6; padding: 40px 20px;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  h1 {
+    font-size: 2.4rem; font-weight: 900; letter-spacing: -0.02em;
+    background: linear-gradient(135deg,#8b5cf6 0%,#ec4899 50%,#06b6d4 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .sub { color: var(--muted); margin: 6px 0 36px; }
+  h2 { font-size: 1.35rem; margin: 44px 0 14px; display: flex; align-items: center; gap: 10px; }
+  h2::before { content: ''; width: 4px; height: 20px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--purple), var(--cyan)); }
+  .callout {
+    border: 1px solid rgba(139,92,246,0.4); border-left: 4px solid var(--purple);
+    background: rgba(139,92,246,0.08); border-radius: 12px; padding: 18px 22px; margin: 18px 0;
+  }
+  .callout strong { color: #c4b5fd; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 8px; font-size: 0.92rem; }
+  th { text-align: left; padding: 10px 12px; color: var(--muted); text-transform: uppercase;
+    font-size: 0.72rem; letter-spacing: 0.06em; border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.25); }
+  td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+  tr:hover td { background: rgba(139,92,246,0.05); }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+  .pill.bad { background: rgba(239,68,68,0.15); color: #f87171; }
+  .pill.warn { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .pill.good { background: rgba(16,185,129,0.15); color: #34d399; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 16px 0; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+  .stat .n { font-size: 1.7rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .stat .l { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+  .mermaid { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px; margin: 14px 0; display: flex; justify-content: center; }
+  details { margin: 8px 0 20px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; }
+  pre { background: #080b18; border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; overflow-x: auto; font-size: 0.78rem; color: #a5b4d4; margin-top: 8px; }
+  .note { color: var(--muted); font-size: 0.83rem; margin-top: 6px; }
+  td small { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>JakePlex — Performance Overview</h1>
+  <div class="sub">State of play after four optimization rounds · June 12, 2026 · numbers from code analysis, build output and multi-agent audits (≈120 agents total)</div>
+
+  <div class="callout">
+    <strong>Main heavy hitter right now:</strong> nothing dominant remains in steady-state. The last big one — the
+    <strong>Plex library walk</strong> (every search and every Library visit pulled the <em>entire</em> library, multi-MB over the
+    Plex box's home uplink, 1–4&nbsp;s, gating each search) — is fixed in the latest deploy with a 5-minute server cache,
+    edge caching, and 99% smaller payloads. What's left, ranked: <strong>(1) first-visit cold path</strong> (11 render-blocking
+    Google-Font files + serverless cold start + first library crawl), <strong>(2) background compositing</strong>
+    (3 layers at 20&nbsp;Hz while you're active — already near the floor for this aesthetic, 0 when idle), and
+    <strong>(3) uncached TMDB proxy calls</strong> on detail pages.
+  </div>
+
+  <h2>Headline numbers</h2>
+  <div class="grid">
+    <div class="stat"><div class="n">~6 → 3</div><div class="l">full-screen layers blended per frame</div></div>
+    <div class="stat"><div class="n">60 → 20 Hz</div><div class="l">background frame rate (looks identical)</div></div>
+    <div class="stat"><div class="n">~0 W</div><div class="l">extra draw when idle 30s or unfocused</div></div>
+    <div class="stat"><div class="n">1–4 s → ~0</div><div class="l">library walk per search (warm cache)</div></div>
+    <div class="stat"><div class="n">91 → 86.8 kB</div><div class="l">main JS bundle (gzip), admin split out</div></div>
+    <div class="stat"><div class="n">5.2 M</div><div class="l">screen pixels the background no longer fights over</div></div>
+  </div>
+
+  <h2>What was burning the ~20 W (and what fixed it)</h2>
+  <table>
+    <tr><th>Cost</th><th>Before</th><th>After</th><th>Status</th></tr>
+    <tr><td>Falling-pattern background</td><td>36 stacked animated gradients repainting full-screen on the CPU under a full-screen <code>backdrop-filter: blur(1em)</code>, 60 fps</td><td>One opaque canvas, pre-rendered sprites, 20 fps; vignette &amp; scrim drawn in-canvas</td><td><span class="pill good">fixed</span></td></tr>
+    <tr><td>Layer stack</td><td>streak canvas + dot-mask sheet + starfield canvas + mask-image wrapper (extra offscreen surface/frame) + scrim + grain ≈ 6 blends @60 Hz ≈ 1.9 Gpx/s</td><td>unified canvas + content + grain = 3 surfaces @20 Hz ≈ 0.36 Gpx/s (5–8× less fill)</td><td><span class="pill good">fixed</span></td></tr>
+    <tr><td>Starfield</td><td>Separate full-screen canvas, 220 arcs redrawn 60 fps forever</td><td>Merged into the unified canvas at 20 fps; 110 stars on mobile</td><td><span class="pill good">fixed</span></td></tr>
+    <tr><td>React render loops</td><td>Circular gallery called setState inside rAF → whole ring re-rendered 60×/s</td><td>Ref-driven transforms, 30 fps cap, zero React renders per frame</td><td><span class="pill good">fixed</span></td></tr>
+    <tr><td>Always-on CSS paint</td><td>Navbar gradient hairline repainted via background-position every frame on every page; search conic spun invisibly (and forever on Home via autofocus); hero title pulsed drop-shadow</td><td>Transform-slid hairline, rotating-square conic (compositor-only), opacity cross-fade glow</td><td><span class="pill good">fixed</span></td></tr>
+    <tr><td>Idle</td><td>Everything above ran 24/7 while the tab was open</td><td>Calm governor: 30 s without input → every decorative loop stops (0 frames); window blur → everything frozen; any input resumes instantly</td><td><span class="pill good">fixed</span></td></tr>
+    <tr><td>Network: detail backdrop</td><td>Full-resolution TMDB original, often 5–10 MB</td><td><code>w1280</code>, invisible difference under the gradient</td><td><span class="pill good">fixed</span></td></tr>
+  </table>
+
+  <h2>API &amp; network round (latest deploy)</h2>
+  <table>
+    <tr><th>Endpoint / asset</th><th>Before</th><th>After</th></tr>
+    <tr><td><code>/api/plex/library</code></td><td>Walked the whole Plex library per request — and was called on <em>every search</em> and every Library visit; three copies of the crawl existed</td><td>One shared crawl, 5-min server cache + in-flight dedupe, edge-cached (<code>s-maxage=300</code>); searches now wait only on TMDB</td></tr>
+    <tr><td><code>/api/plex/recent-unrequested</code></td><td>Transferred the entire library to return 10 items, every home-page load</td><td>Asks Plex for 10 newest per section (~99% smaller), cached server + edge</td></tr>
+    <tr><td><code>/api/plex/image</code> (posters)</td><td>Browser-only caching — every visitor re-pulled every poster through the function from the Plex box</td><td>CDN-cached one day (<code>s-maxage=86400</code>, SWR 7 days): one origin fetch serves all users</td></tr>
+    <tr><td>Client fetches</td><td>No caching anywhere; Home/Library/Search refetched on every navigation, gallery flashed empty</td><td>Shared in-memory cache + instant render seeds on revisit</td></tr>
+    <tr><td>JS bundle</td><td>One 298 kB chunk including admin pages for everyone</td><td>Admin lazy-loaded (26 kB split out); dead code removed — including a hardcoded Radarr API key that shipped publicly <span class="pill bad">rotate that key</span></td></tr>
+  </table>
+
+  <h2>Remaining opportunities (descending value)</h2>
+  <table>
+    <tr><th>Item</th><th>Detail</th><th>Impact</th></tr>
+    <tr><td>Google Fonts</td><td>11 weight files of Inter + Outfit load render-blocking; only ~6 weights are actually used. Subset + self-host or trim the link</td><td><span class="pill warn">first visit</span></td></tr>
+    <tr><td>TMDB proxy caching</td><td><code>/api/tmdb/*</code> (search, detail) has no cache headers — popular titles re-hit TMDB per view</td><td><span class="pill warn">medium</span></td></tr>
+    <tr><td>Admin dashboard double read</td><td>Auto-detect + list = 2 full Firestore collection reads per admin load</td><td><span class="pill warn">admin only</span></td></tr>
+    <tr><td>Toast context split</td><td>Every toast re-renders all consumers; cosmetic CPU blip</td><td><span class="pill good">minor</span></td></tr>
+    <tr><td>Favicon / stale chunks</td><td>SPA rewrite answers <code>/favicon.ico</code> and stale chunk URLs with HTML</td><td><span class="pill good">minor</span></td></tr>
+  </table>
+
+  <h2>How it all works now</h2>
+  <div class="mermaid">
+flowchart TB
+  subgraph BROWSER["Browser — React SPA"]
+    direction TB
+    INPUT["pointer / key / scroll"] --> GOV{"Calm governor"}
+    GOV -->|"active"| LOOP["unified background canvas<br/>ONE rAF loop @ 20 fps"]
+    GOV -->|"30s no input → jp:calm"| ZERO["all loops cancelled<br/>CSS animations paused<br/>0 frames, ~0 W"]
+    GOV -->|"window blur → app-paused"| ZERO
+    LOOP --> DRAW["draw order:<br/>base → streaks → LED dots →<br/>vignette → stars → scrim"]
+    DRAW --> COMP["compositor blends 3 surfaces:<br/>opaque canvas + content + grain"]
+    PAGES["pages: Home / Search / Library /<br/>Detail / Requests / Admin (lazy)"] --> CCACHE[("client fetch cache<br/>5-min TTL, shared by pages")]
+  end
+  CCACHE --> EDGE[("Vercel edge CDN<br/>s-maxage: library 5m,<br/>posters 1d, check 60s")]
+  EDGE --> API["Express serverless /api"]
+  subgraph BACKEND["API layer"]
+    API --> MCACHE[("module TTL cache 5 min<br/>+ in-flight dedupe")]
+    MCACHE --> PLEX["Plex server<br/>(one crawl / 5 min,<br/>10-per-section for recent)"]
+    API --> TMDB["TMDB API<br/>(search + details, uncached)"]
+    API --> FS[("Firestore<br/>requests + users")]
+  end
+  style ZERO fill:#06281e,stroke:#10b981,color:#d1fae5
+  style PLEX fill:#2a1a05,stroke:#f59e0b,color:#fde68a
+  style COMP fill:#1d1040,stroke:#8b5cf6,color:#e9d5ff
+  </div>
+  <details><summary>Mermaid source</summary><pre>flowchart TB
+  subgraph BROWSER["Browser — React SPA"]
+    direction TB
+    INPUT["pointer / key / scroll"] --&gt; GOV{"Calm governor"}
+    GOV --&gt;|"active"| LOOP["unified background canvas&lt;br/&gt;ONE rAF loop @ 20 fps"]
+    GOV --&gt;|"30s no input → jp:calm"| ZERO["all loops cancelled&lt;br/&gt;CSS animations paused&lt;br/&gt;0 frames, ~0 W"]
+    GOV --&gt;|"window blur → app-paused"| ZERO
+    LOOP --&gt; DRAW["draw order:&lt;br/&gt;base → streaks → LED dots →&lt;br/&gt;vignette → stars → scrim"]
+    DRAW --&gt; COMP["compositor blends 3 surfaces:&lt;br/&gt;opaque canvas + content + grain"]
+    PAGES["pages: Home / Search / Library /&lt;br/&gt;Detail / Requests / Admin (lazy)"] --&gt; CCACHE[("client fetch cache&lt;br/&gt;5-min TTL, shared by pages")]
+  end
+  CCACHE --&gt; EDGE[("Vercel edge CDN&lt;br/&gt;s-maxage: library 5m,&lt;br/&gt;posters 1d, check 60s")]
+  EDGE --&gt; API["Express serverless /api"]
+  subgraph BACKEND["API layer"]
+    API --&gt; MCACHE[("module TTL cache 5 min&lt;br/&gt;+ in-flight dedupe")]
+    MCACHE --&gt; PLEX["Plex server&lt;br/&gt;(one crawl / 5 min,&lt;br/&gt;10-per-section for recent)"]
+    API --&gt; TMDB["TMDB API&lt;br/&gt;(search + details, uncached)"]
+    API --&gt; FS[("Firestore&lt;br/&gt;requests + users")]
+  end</pre></details>
+
+  <h2>Power-state machine</h2>
+  <div class="mermaid">
+stateDiagram-v2
+  [*] --> Active
+  Active: ACTIVE — 3 layers @ 20 Hz (~0.36 Gpx/s)
+  Calm: CALM — 0 frames, ~0 W extra
+  Paused: UNFOCUSED — everything frozen, ~0 W extra
+  Active --> Calm: 30 s without input
+  Calm --> Active: any pointer / key / scroll (instant, lossless)
+  Active --> Paused: window blur
+  Calm --> Paused: window blur
+  Paused --> Active: window focus
+  note right of Active
+    was ~6 layers @ 60 Hz (~1.9 Gpx/s)
+    plus per-frame CPU paints — the ~20 W state
+  end note
+  </div>
+  <details><summary>Mermaid source</summary><pre>stateDiagram-v2
+  [*] --&gt; Active
+  Active: ACTIVE — 3 layers @ 20 Hz (~0.36 Gpx/s)
+  Calm: CALM — 0 frames, ~0 W extra
+  Paused: UNFOCUSED — everything frozen, ~0 W extra
+  Active --&gt; Calm: 30 s without input
+  Calm --&gt; Active: any pointer / key / scroll (instant, lossless)
+  Active --&gt; Paused: window blur
+  Calm --&gt; Paused: window blur
+  Paused --&gt; Active: window focus</pre></details>
+
+  <h2>Fix timeline (commits on main)</h2>
+  <table>
+    <tr><th>Commit</th><th>What</th></tr>
+    <tr><td><code>e6a15a0</code></td><td>First perf pass: waves → canvas, gallery off React's render path, cheap CSS animations, w1280 backdrop, request rows click through to detail pages</td></tr>
+    <tr><td><code>2525a8b</code></td><td>FallingPattern: 36 animated gradients + full-screen backdrop blur → low-res canvas (−40 kB gzip, framer-motion dropped)</td></tr>
+    <tr><td><code>54728a7</code></td><td>Power round: frame caps, layer merges, blur-pause, conic halo via transform, scrim, dead code purge</td></tr>
+    <tr><td><code>e83aa31</code></td><td>Unified single-canvas background + calm governor; sticky navbar actually fixed (body overflow-x bug); backdrop seam mask; modal/overlay portals</td></tr>
+    <tr><td><code>c8b9273</code></td><td>Elastic-overscroll fix — the real "navbar comes down" culprit all along</td></tr>
+    <tr><td><code>360095e</code></td><td>API round: Plex crawl cached + deduped, payloads trimmed ~99%, edge caching, client cache, admin lazy-loaded, leaked Radarr key removed</td></tr>
+  </table>
+  <p class="note">Power figures are engineering estimates from layer count × frequency × resolution — for ground truth, watch Activity Monitor's GPU history with the site focused, then leave it untouched for 30 s and watch it flatline.</p>
+</div>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { darkMode: true, background: '#0a0e1f', primaryColor: '#1d1040', primaryBorderColor: '#8b5cf6', primaryTextColor: '#f0f4ff', lineColor: '#06b6d4' } });
+</script>
+</body>
+</html>
