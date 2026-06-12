@@ -12,12 +12,11 @@ const COLUMN_GAP = 25;
 // sprite — the smoothing stands in for the old full-screen backdrop blur.
 const SCALE = 8;
 
-// Unified background renderer: streaks + LED dot mask + vignette + stars +
-// page scrim all drawn into ONE opaque canvas. Previously these were five
-// stacked full-screen surfaces (streak canvas, dot-mask div, starfield canvas,
-// scrim ::before, wrapper bg) that the compositor re-blended on every frame of
-// two out-of-phase clocks. One opaque layer also occlusion-culls everything
-// beneath it.
+// Unified background renderer: streaks + LED dot mask + vignette + page scrim
+// all drawn into ONE opaque canvas. Previously these were five stacked
+// full-screen surfaces that the compositor re-blended on every frame of two
+// out-of-phase clocks. One opaque layer also occlusion-culls everything
+// beneath it. (The starfield was removed entirely by request, June 2026.)
 export function FallingPattern({
 	color = '#8b5cf6',
 	backgroundColor = '#04060f',
@@ -47,7 +46,6 @@ export function FallingPattern({
 
 		// --- sprites & gradients (rebuilt on resize/dpr change) ---
 		let streakSprite = null, dotTile = null, dotPattern = null, vignGrad = null, scrimGrad = null;
-		let stars = [];
 
 		const buildStreakSprite = () => {
 			// author at 1/8 res, upscale once — same soft look as the old upscaled canvas
@@ -125,25 +123,6 @@ export function FallingPattern({
 			scrimGrad = sg;
 		};
 
-		const seedStars = () => {
-			// same population as the old standalone starfield canvas
-			const count = w < 768 ? 110 : 220;
-			stars = [];
-			for (let i = 0; i < count; i++) {
-				stars.push({
-					x: Math.random() * w,
-					y: Math.random() * h,
-					r: Math.random() * 1.4 + 0.15,
-					base: Math.random() * 0.7 + 0.1,
-					speed: Math.random() * 0.04 + 0.01,
-					ts: Math.random() * Math.PI * 2,
-					tsp: Math.random() * 0.015 + 0.003,
-					hue: Math.random() < 0.5 ? 260 : 185,
-					col: Math.random() < 0.15,
-				});
-			}
-		};
-
 		const resize = () => {
 			const rect = canvas.getBoundingClientRect();
 			w = Math.max(1, Math.round(rect.width));
@@ -155,14 +134,12 @@ export function FallingPattern({
 			buildStreakSprite();
 			buildDotTile();
 			buildGradients();
-			seedStars();
 			// Setting canvas.width clears the bitmap to black — if no loop is
 			// running (reduced motion, blurred, or calm) nothing would repaint it.
-			if (!rafId) draw(reducedMotion ? 0 : performance.now() - timeOffset, 1);
+			if (!rafId) draw(reducedMotion ? 0 : performance.now() - timeOffset);
 		};
 
-		let starT = 0;
-		const draw = (now, k) => {
+		const draw = (now) => {
 			const t = now / 1000;
 
 			// 1. base
@@ -192,19 +169,7 @@ export function FallingPattern({
 			// 4. centre vignette
 			ctx.drawImage(vignGrad, 0, 0, w, h);
 
-			// 5. stars (above the dots, like the old separate starfield canvas)
-			starT += 0.008 * k;
-			for (const s of stars) {
-				const op = s.base * (0.5 + 0.5 * Math.sin(starT * s.tsp * 60 + s.ts));
-				ctx.fillStyle = s.col ? `hsla(${s.hue},80%,80%,${op})` : `rgba(255,255,255,${op})`;
-				ctx.beginPath();
-				ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-				ctx.fill();
-				s.y -= s.speed * k;
-				if (s.y < -2) { s.y = h + 2; s.x = Math.random() * w; }
-			}
-
-			// 6. content scrim (replaces .page::before)
+			// 5. content scrim (replaces .page::before)
 			ctx.drawImage(scrimGrad, 0, 0, w, h);
 		};
 
@@ -218,9 +183,8 @@ export function FallingPattern({
 		const tick = (now) => {
 			rafId = requestAnimationFrame(tick);
 			if (lastDraw && now - lastDraw < 50) return;
-			const k = lastDraw ? Math.min((now - lastDraw) / 16.7, 8) : 1;
 			lastDraw = now;
-			draw(now - timeOffset, k);
+			draw(now - timeOffset);
 		};
 
 		const pause = () => {
@@ -247,7 +211,7 @@ export function FallingPattern({
 		resize();
 		window.addEventListener('resize', resize);
 		if (reducedMotion) {
-			draw(0, 1);
+			draw(0);
 		} else {
 			rafId = requestAnimationFrame(tick);
 			window.addEventListener('blur', pause);
